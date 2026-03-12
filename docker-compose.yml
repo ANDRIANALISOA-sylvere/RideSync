@@ -1,5 +1,3 @@
-version: "3.6"
-
 services:
   rabbitmq:
     image: rabbitmq:3-management-alpine
@@ -30,8 +28,8 @@ services:
       POSTGRES_DB: ride_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-  ports:
-    - "5434:5432"
+    ports:
+      - "5434:5432"
 
   notification-db:
     image: postgres:16-alpine
@@ -41,6 +39,21 @@ services:
       POSTGRES_PASSWORD: postgres
     ports:
       - "5435:5432"
+
+  pg-admin:
+    image: dpage/pgadmin4:7
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@ridesync.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "8081:80"
+    depends_on:
+      - location-db
+      - ride-db
+      - notification-db
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
 
   api-gateway:
     build: ./api-gateway
@@ -79,3 +92,6 @@ services:
     depends_on:
       - notification-db
       - rabbitmq
+
+volumes:
+  pgadmin_data:
