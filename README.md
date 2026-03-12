@@ -1,98 +1,287 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# RideSync
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+> Real-time ride dispatch system , connecting riders and drivers instantly.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+RideSync is a microservices-based backend system that handles ride requests, driver matching, and real-time location tracking. Built to explore distributed systems, event-driven architecture, and CQRS in a real-world context.
 
-## Description
+---
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## The Problem
 
-## Project setup
+In many cities, dispatch systems are either non-existent or centralized in a single fragile server:
 
-```bash
-$ npm install
+- No real-time visibility on driver locations
+- Manual matching between riders and drivers
+- No audit trail of rides
+- A single crash takes down the entire system
+
+**RideSync solves this with a distributed, event-driven architecture.**
+
+---
+
+## How It Works
+
+```
+1. Driver comes online       → sends location every 5s
+2. Rider requests a ride     → POST /rides/request
+3. System finds nearest driver → Redis Geosearch (within 3km)
+4. Driver gets notified      → WebSocket
+5. Driver accepts            → RideAccepted event emitted
+6. Rider sees driver move    → WebSocket real-time tracking
+7. Ride completes            → RideCompleted event emitted
+8. Both get notified         → NotificationService
 ```
 
-## Compile and run the project
+### What happens if driver cancels?
 
-```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+```
+DriverCancelled event
+  → Saga compensation kicks in
+  → Rider is re-matched with next available driver
+  → Or ride is cancelled with notification
 ```
 
-## Run tests
+---
 
-```bash
-# unit tests
-$ npm run test
+## Architecture
 
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+```
+                        ┌─────────────────┐
+  Client / Driver App   │   API Gateway   │  :3000
+                        └────────┬────────┘
+                                 │
+              ┌──────────────────┼──────────────────┐
+              │                  │                  │
+    ┌─────────▼──────┐  ┌────────▼───────┐  ┌──────▼─────────┐
+    │ Location       │  │ Ride           │  │ Notification   │
+    │ Service  :3001 │  │ Service  :3002 │  │ Service  :3003 │
+    └─────────┬──────┘  └────────┬───────┘  └──────┬─────────┘
+              │                  │                  │
+              └──────────────────┼──────────────────┘
+                                 │
+                    ┌────────────▼────────────┐
+                    │       RabbitMQ          │
+                    │   (Event Bus)           │
+                    └────────────┬────────────┘
+                                 │
+              ┌──────────────────┼──────────────────┐
+              │                  │                  │
+         ┌────▼────┐       ┌─────▼─────┐      ┌────▼────┐
+         │ PG DB   │       │ PG DB     │      │ PG DB   │
+         │(location│       │ (rides)   │      │ (notifs)│
+         └─────────┘       └───────────┘      └─────────┘
+                                 │
+                          ┌──────▼──────┐
+                          │    Redis    │
+                          │  Geo Cache  │
+                          └─────────────┘
 ```
 
-## Deployment
+---
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+## Services
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+| Service                | Port | Responsibility                    |
+| ---------------------- | ---- | --------------------------------- |
+| `api-gateway`          | 3000 | Single entry point, routing, auth |
+| `location-service`     | 3001 | Driver positions, Redis Geosearch |
+| `ride-service`         | 3002 | Ride lifecycle, matching, Saga    |
+| `notification-service` | 3003 | WebSocket, push notifications     |
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+---
+
+## Events Flow (RabbitMQ)
+
+```
+LocationUpdated       → ride-service updates nearby drivers
+RideRequested         → location-service finds nearest driver
+DriverMatched         → notification-service notifies driver
+RideAccepted          → notification-service notifies rider
+RideCompleted         → notification-service notifies both
+DriverCancelled       → ride-service triggers re-matching
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+---
 
-## Resources
+## Tech Stack
 
-Check out a few resources that may come in handy when working with NestJS:
+| Layer        | Technology                          |
+| ------------ | ----------------------------------- |
+| Framework    | NestJS                              |
+| Database     | PostgreSQL + TypeORM                |
+| Cache & Geo  | Redis (Geosearch)                   |
+| Event Bus    | RabbitMQ                            |
+| Real-time    | WebSockets (Socket.io)              |
+| Containers   | Docker + Docker Compose             |
+| Architecture | Microservices + CQRS + Event-Driven |
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+---
 
-## Support
+## Getting Started
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+### Prerequisites
 
-## Stay in touch
+- Docker & Docker Compose
+- Node.js 18+
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+### Clone & Run
 
-## License
+```bash
+git clone https://github.com/ANDRIANALISOA-sylvere/ridesync
+cd ridesync
+cp .env.example .env
+docker-compose up --build
+```
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+That's it — all services start automatically.
+
+---
+
+## Environment Variables
+
+```bash
+# .env
+
+# API Gateway
+API_GATEWAY_PORT=3000
+JWT_SECRET=secret
+
+# Location Service
+LOCATION_SERVICE_PORT=3001
+LOCATION_DB_HOST=localhost
+LOCATION_DB_PORT=5432
+LOCATION_DB_NAME=location_db
+LOCATION_DB_USER=postgres
+LOCATION_DB_PASSWORD=postgres
+
+# Ride Service
+RIDE_SERVICE_PORT=3002
+RIDE_DB_HOST=localhost
+RIDE_DB_PORT=5432
+RIDE_DB_NAME=ride_db
+RIDE_DB_USER=postgres
+RIDE_DB_PASSWORD=postgres
+
+# Notification Service
+NOTIFICATION_SERVICE_PORT=3003
+NOTIFICATION_DB_HOST=localhost
+NOTIFICATION_DB_PORT=5432
+NOTIFICATION_DB_NAME=notification_db
+NOTIFICATION_DB_USER=postgres
+NOTIFICATION_DB_PASSWORD=postgres
+
+# RabbitMQ
+RABBITMQ_URL=amqp://guest:guest@localhost:5672
+
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+```
+
+---
+
+## API Endpoints
+
+### Auth (via API Gateway)
+
+```bash
+POST /auth/register    # Register as rider or driver
+POST /auth/login       # Login → JWT token
+```
+
+### Rides
+
+```bash
+POST /rides/request              # Rider requests a ride
+GET  /rides/:id                  # Get ride status
+POST /rides/:id/accept           # Driver accepts
+POST /rides/:id/cancel           # Driver or rider cancels
+POST /rides/:id/complete         # Driver completes ride
+GET  /rides/history              # Ride history
+```
+
+### Location
+
+```bash
+POST /location/update            # Driver sends position
+GET  /location/drivers/nearby    # Rider sees nearby drivers
+```
+
+### WebSocket Events
+
+```bash
+# Connect
+ws://localhost:3000?token=<jwt>
+
+# Listen
+ride:matched          → driver found for your request
+ride:driver-location  → driver position update (real-time)
+ride:accepted         → driver accepted your ride
+ride:completed        → ride is done
+ride:cancelled        → ride was cancelled
+
+# Emit
+location:update       → driver sends { lat, lng }
+```
+
+---
+
+## CQRS in Action
+
+```
+COMMAND side (writes)           QUERY side (reads)
+─────────────────────           ──────────────────
+POST /rides/request             GET /rides/:id
+POST /location/update           GET /location/drivers/nearby
+POST /rides/:id/accept          GET /rides/history
+
+Writes → PostgreSQL (source of truth)
+Reads  → Redis cache (fast, scalable)
+```
+
+---
+
+## Saga Pattern — Ride Cancellation
+
+```
+Happy path:
+  RideRequested → DriverMatched → RideAccepted → RideCompleted
+
+Compensation (driver cancels):
+  DriverCancelled
+    → Mark ride as "searching again"
+    → Find next available driver
+    → Notify rider: "Finding another driver..."
+    → If no driver found in 2 min → RideCancelled
+```
+
+---
+
+## Concepts Applied
+
+- **Microservices** — each service is independent, deployable separately
+- **CQRS** — separate read and write models
+- **Event-Driven Architecture** — services communicate via RabbitMQ events
+- **Saga Pattern** — distributed transaction compensation
+- **Redis Geosearch** — find drivers within X km radius
+- **WebSockets** — real-time location updates
+- **Docker Compose** — orchestrate all services locally
+
+---
+
+<!--
+## Roadmap
+
+- [ ] Surge pricing based on demand
+- [ ] Driver rating system
+- [ ] Trip analytics
+- [ ] CI/CD GitHub Actions
+-->
+
+---
+
+## Author
+
+**Sylvère Andrianalisoa** — [@ANDRIANALISOA-sylvere](https://github.com/ANDRIANALISOA-sylvere)
+
+> Built to master distributed systems. Inspired by real transport challenges.
