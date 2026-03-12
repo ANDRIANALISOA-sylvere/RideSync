@@ -127,8 +127,8 @@ DriverCancelled       → ride-service triggers re-matching
 ### Clone & Run
 
 ```bash
-git clone https://github.com/ANDRIANALISOA-sylvere/ridesync
-cd ridesync
+git clone https://github.com/ANDRIANALISOA-sylvere/RideSync
+cd RideSync
 cp .env.example .env
 docker-compose up --build
 ```
