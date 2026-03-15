@@ -121,7 +121,7 @@ DriverCancelled       → ride-service triggers re-matching
 
 ### Prerequisites
 
-- Docker & Docker Compose
+- Docker
 - Node.js 18+
 
 ### Clone & Run
@@ -147,8 +147,9 @@ API_GATEWAY_PORT=3000
 JWT_SECRET=secret
 
 # Location Service
+LOCATION_SERVICE_URL="http://location-service:3001"
 LOCATION_SERVICE_PORT=3001
-LOCATION_DB_HOST=localhost
+LOCATION_DB_HOST=location-db
 LOCATION_DB_PORT=5432
 LOCATION_DB_NAME=location_db
 LOCATION_DB_USER=postgres
@@ -156,7 +157,7 @@ LOCATION_DB_PASSWORD=postgres
 
 # Ride Service
 RIDE_SERVICE_PORT=3002
-RIDE_DB_HOST=localhost
+RIDE_DB_HOST=ride-db
 RIDE_DB_PORT=5432
 RIDE_DB_NAME=ride_db
 RIDE_DB_USER=postgres
@@ -164,7 +165,7 @@ RIDE_DB_PASSWORD=postgres
 
 # Notification Service
 NOTIFICATION_SERVICE_PORT=3003
-NOTIFICATION_DB_HOST=localhost
+NOTIFICATION_DB_HOST=notification-db
 NOTIFICATION_DB_PORT=5432
 NOTIFICATION_DB_NAME=notification_db
 NOTIFICATION_DB_USER=postgres
@@ -174,7 +175,7 @@ NOTIFICATION_DB_PASSWORD=postgres
 RABBITMQ_URL=amqp://guest:guest@localhost:5672
 
 # Redis
-REDIS_HOST=localhost
+REDIS_HOST=redis
 REDIS_PORT=6379
 ```
 
