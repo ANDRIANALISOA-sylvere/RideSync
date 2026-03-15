@@ -44,12 +44,12 @@ export class RideService {
           params: {
             lat: dto.pickupLat,
             lng: dto.pickupLng,
-            radius: dto.radius,
+            radius: dto.radius ?? 3,
           },
         },
       );
 
-      const drivers: string[] = response.data.drivers;
+      const drivers: string[] = response.data;
 
       if (drivers.length === 0) {
         ride.status = RideStatus.CANCELLED;
@@ -71,6 +71,8 @@ export class RideService {
       });
 
       console.log(`Ride ${ride.id} matched with driver ${nearestDriver}`);
+
+      return ride;
     } catch (error: any) {
       console.error('Error contacting location service:', error.message);
     }
