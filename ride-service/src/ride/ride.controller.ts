@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { RideService } from './ride.service';
 import { RequestRideDto } from './dto/request-ride.dto';
 
-@Controller('ride')
+@Controller('rides')
 export class RideController {
   constructor(private readonly rideService: RideService) {}
 
