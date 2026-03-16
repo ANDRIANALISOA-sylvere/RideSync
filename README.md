@@ -143,8 +143,16 @@ That's it — all services start automatically.
 # .env
 
 # API Gateway
+# API Gateway
 API_GATEWAY_PORT=3000
-JWT_SECRET=secret
+API_GATEWAY_DB_HOST=api-gateway-db
+API_GATEWAY_DB_PORT=5432
+API_GATEWAY_DB_NAME=gateway_db
+API_GATEWAY_DB_USER=postgres
+API_GATEWAY_DB_PASSWORD=postgres
+
+#jwt
+JWT_SECRET=ridesync-secret-dev
 
 # Location Service
 LOCATION_SERVICE_URL="http://location-service:3001"
@@ -156,6 +164,7 @@ LOCATION_DB_USER=postgres
 LOCATION_DB_PASSWORD=postgres
 
 # Ride Service
+RIDE_SERVICE_URL="http://ride-service:3002"
 RIDE_SERVICE_PORT=3002
 RIDE_DB_HOST=ride-db
 RIDE_DB_PORT=5432
@@ -164,6 +173,7 @@ RIDE_DB_USER=postgres
 RIDE_DB_PASSWORD=postgres
 
 # Notification Service
+NOTIFICATION_SERVICE_URL="http://notification-service:3003"
 NOTIFICATION_SERVICE_PORT=3003
 NOTIFICATION_DB_HOST=notification-db
 NOTIFICATION_DB_PORT=5432
@@ -172,11 +182,12 @@ NOTIFICATION_DB_USER=postgres
 NOTIFICATION_DB_PASSWORD=postgres
 
 # RabbitMQ
-RABBITMQ_URL=amqp://guest:guest@localhost:5672
+RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
 
 # Redis
 REDIS_HOST=redis
 REDIS_PORT=6379
+
 ```
 
 ---
